@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Access 调试台</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --line: #d9dee7;
+      --text: #20242c;
+      --muted: #667085;
+      --accent: #0f766e;
+      --blue: #2563eb;
+      --ok: #137333;
+      --warn: #a15c07;
+      --danger: #b42318;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 1500px;
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.45 "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+    header {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: 0; }
+    main {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 360px 1fr 520px;
+      grid-template-rows: auto 1fr auto;
+      gap: 12px;
+      align-items: start;
+    }
+    .strip {
+      grid-column: 1 / 4;
+      display: grid;
+      grid-template-columns: 1.1fr 1.1fr 1.1fr 1.5fr 1fr;
+      gap: 10px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .metric { padding: 10px 12px; min-height: 60px; }
+    .label { color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+    .value { font-size: 15px; font-weight: 650; overflow-wrap: anywhere; }
+    .head {
+      height: 44px;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    h2 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: 0; }
+    .body { padding: 12px; }
+    .tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    input, button {
+      min-height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      padding: 6px 9px;
+    }
+    button { cursor: pointer; padding: 0 11px; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button:disabled { opacity: .65; cursor: wait; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td {
+      padding: 8px 7px;
+      border-bottom: 1px solid #edf0f4;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    th { color: var(--muted); font-size: 12px; font-weight: 600; background: #fbfcfd; }
+    tr:last-child td { border-bottom: 0; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 21px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: #eef2f7;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .ok { background: #e7f5ec; color: var(--ok); }
+    .warn { background: #fff4df; color: var(--warn); }
+    .danger { background: #fdeaea; color: var(--danger); }
+    .info { background: #e9f1ff; color: var(--blue); }
+    .hint { color: var(--muted); font-size: 12px; }
+    .log {
+      height: 84px;
+      padding: 9px 10px;
+      background: #1f2937;
+      color: #e5e7eb;
+      border-radius: 7px;
+      font: 12px/1.35 Consolas, "Cascadia Mono", monospace;
+      white-space: pre-wrap;
+      overflow: hidden;
+    }
+    #messagesPanel { grid-column: 2 / 3; }
+    #commandsPanel { grid-column: 3 / 4; }
+    #logPanel { grid-column: 1 / 4; }
+    dialog {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0;
+      width: min(900px, calc(100vw - 40px));
+    }
+    dialog::backdrop { background: rgba(15, 23, 42, .35); }
+    pre {
+      margin: 0;
+      padding: 14px;
+      max-height: 70vh;
+      overflow: auto;
+      background: #f8fafc;
+      font: 12px/1.45 Consolas, "Cascadia Mono", monospace;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Access 调试台</h1>
+  <div class="tools">
+    <button id="refreshAll" class="primary">刷新全部</button>
+    <label class="hint"><input id="autoRefresh" type="checkbox" checked style="min-height:auto"> 自动刷新</label>
+  </div>
+</header>
+
+<main>
+  <section class="strip">
+    <div class="card metric"><div class="label">Access 服务</div><div class="value">localhost:8101</div></div>
+    <div class="card metric"><div class="label">MQTT</div><div class="value">localhost:1883</div></div>
+    <div class="card metric"><div class="label">RabbitMQ</div><div class="value">localhost:5672</div></div>
+    <div class="card metric">
+      <div class="label">队列</div>
+      <input id="queueName" value="raw_electric_data" placeholder="raw_electric_data" style="width:100%">
+    </div>
+    <div class="card metric"><div class="label">最近刷新</div><div id="lastRefresh" class="value">-</div></div>
+  </section>
+
+  <section class="card">
+    <div class="head">
+      <h2>网关状态</h2>
+      <button data-action="gateways">刷新</button>
+    </div>
+    <table>
+      <thead><tr><th style="width:70px">ID</th><th>Topic</th><th>SN</th><th style="width:86px">状态</th><th>最后在线</th></tr></thead>
+      <tbody id="gatewayRows"></tbody>
+    </table>
+  </section>
+
+  <section id="messagesPanel" class="card">
+    <div class="head">
+      <h2>原始消息</h2>
+      <div class="tools">
+        <input id="gatewayFilter" placeholder="gatewayId">
+        <button data-action="messages">刷新</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th style="width:70px">ID</th><th style="width:90px">Gateway</th><th>Message ID / Topic</th><th style="width:100px">类型</th><th style="width:110px">状态</th><th style="width:150px">接收时间</th></tr></thead>
+      <tbody id="messageRows"></tbody>
+    </table>
+  </section>
+
+  <section id="commandsPanel" class="card">
+    <div class="head">
+      <h2>命令记录</h2>
+      <div class="tools">
+        <input id="queryCommandId" placeholder="commandId">
+        <button id="queryCommand">查询</button>
+        <button data-action="commands">刷新</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Command ID</th><th style="width:70px">网关</th><th>目标</th><th style="width:82px">类型</th><th style="width:100px">状态</th><th style="width:145px">请求时间</th></tr></thead>
+      <tbody id="commandRows"></tbody>
+    </table>
+  </section>
+
+  <section id="logPanel" class="card">
+    <div class="head"><h2>调试输出</h2><button id="clearLog">清空</button></div>
+    <div class="body"><div id="log" class="log"></div></div>
+  </section>
+</main>
+
+<dialog id="jsonDialog">
+  <div class="head"><h2>JSON 详情</h2><button onclick="jsonDialog.close()">关闭</button></div>
+  <pre id="jsonContent"></pre>
+</dialog>
+
+<script>
+  const state = { gateways: [], messages: [], commands: [] };
+  const $ = (id) => document.getElementById(id);
+  let logLines = [];
+
+  function log(message, level = "info") {
+    const line = `[${new Date().toLocaleTimeString()}] ${level.toUpperCase()} ${message}`;
+    logLines = [line, ...logLines].slice(0, 5);
+    $("log").textContent = logLines.join("\n");
+  }
+
+  function dataOf(response) {
+    if (response && response.code === 0) return response.data;
+    if (response && response.success === true) return response.data;
+    throw new Error(response?.message || "接口返回失败");
+  }
+
+  async function getJson(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return dataOf(await res.json());
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, s => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s]));
+  }
+
+  function fmtTime(value) {
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? escapeHtml(value) : date.toLocaleString();
+  }
+
+  function badge(value) {
+    const text = String(value ?? "-");
+    const upper = text.toUpperCase();
+    let cls = "info";
+    if (["ONLINE", "SUCCESS", "FORWARDED", "SENT", "RESPONDED"].some(x => upper.includes(x))) cls = "ok";
+    if (["PENDING", "PROCESSING", "WAIT"].some(x => upper.includes(x))) cls = "warn";
+    if (["OFFLINE", "FAIL", "ERROR", "TIMEOUT"].some(x => upper.includes(x))) cls = "danger";
+    return `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
+  }
+
+  function showJson(value) {
+    $("jsonContent").textContent = JSON.stringify(value, null, 2);
+    $("jsonDialog").showModal();
+  }
+
+  function showStateJson(kind, index) {
+    showJson(state[kind][index]);
+  }
+
+  async function loadGateways() {
+    state.gateways = await getJson("/api/access/gateways/status");
+    $("gatewayRows").innerHTML = state.gateways.slice(0, 7).map(row => `
+      <tr>
+        <td>${escapeHtml(row.gatewayId)}</td>
+        <td>${escapeHtml(row.topicGatewayId)}</td>
+        <td>${escapeHtml(row.gatewaySn)}</td>
+        <td>${badge(row.status)}</td>
+        <td>${fmtTime(row.lastSeenTime)}</td>
+      </tr>`).join("") || `<tr><td colspan="5">暂无数据</td></tr>`;
+    log(`网关状态 ${state.gateways.length} 条`);
+  }
+
+  async function loadMessages() {
+    const filter = $("gatewayFilter").value.trim();
+    const rows = await getJson("/api/access/raw-messages");
+    state.messages = filter ? rows.filter(x => String(x.gatewayId ?? "") === filter) : rows;
+    $("messageRows").innerHTML = state.messages.slice(0, 8).map((row, index) => `
+      <tr ondblclick="showStateJson('messages', ${index})">
+        <td>${escapeHtml(row.id)}</td>
+        <td>${escapeHtml(row.gatewayId)}<br>${escapeHtml(row.gatewaySn)}</td>
+        <td>${escapeHtml(row.messageId)}<br><span class="hint">${escapeHtml(row.topic)}</span></td>
+        <td>${badge(row.messageType)}</td>
+        <td>${badge(row.status)}</td>
+        <td>${fmtTime(row.receiveTime)}</td>
+      </tr>`).join("") || `<tr><td colspan="6">暂无数据</td></tr>`;
+    log(`原始消息 ${state.messages.length} 条`);
+  }
+
+  async function loadCommands() {
+    state.commands = await getJson("/api/access/commands");
+    $("commandRows").innerHTML = state.commands.slice(0, 8).map((row, index) => `
+      <tr ondblclick="showStateJson('commands', ${index})">
+        <td>${escapeHtml(row.commandId)}</td>
+        <td>${escapeHtml(row.gatewayId)}</td>
+        <td>${escapeHtml(row.targetType)}<br>${escapeHtml(row.targetSn ?? row.targetId ?? "-")}</td>
+        <td>${escapeHtml(row.commandType)}</td>
+        <td>${badge(row.status)}</td>
+        <td>${fmtTime(row.requestTime)}</td>
+      </tr>`).join("") || `<tr><td colspan="6">暂无数据</td></tr>`;
+    log(`命令记录 ${state.commands.length} 条`);
+  }
+
+  async function refreshAll() {
+    document.querySelectorAll("button").forEach(button => button.disabled = true);
+    try {
+      await Promise.allSettled([loadGateways(), loadMessages(), loadCommands()]);
+      $("lastRefresh").textContent = new Date().toLocaleTimeString();
+    } finally {
+      document.querySelectorAll("button").forEach(button => button.disabled = false);
+    }
+  }
+
+  $("refreshAll").addEventListener("click", refreshAll);
+  document.querySelectorAll("[data-action='gateways']").forEach(b => b.addEventListener("click", () => loadGateways().catch(e => log(e.message, "error"))));
+  document.querySelectorAll("[data-action='messages']").forEach(b => b.addEventListener("click", () => loadMessages().catch(e => log(e.message, "error"))));
+  document.querySelectorAll("[data-action='commands']").forEach(b => b.addEventListener("click", () => loadCommands().catch(e => log(e.message, "error"))));
+  $("gatewayFilter").addEventListener("change", () => loadMessages().catch(e => log(e.message, "error")));
+  $("clearLog").addEventListener("click", () => { logLines = []; $("log").textContent = ""; });
+  $("queryCommand").addEventListener("click", async () => {
+    try {
+      const commandId = $("queryCommandId").value.trim();
+      if (!commandId) throw new Error("请输入 commandId");
+      showJson(await getJson(`/api/access/commands/${encodeURIComponent(commandId)}`));
+    } catch (e) {
+      log(e.message, "error");
+    }
+  });
+  setInterval(() => { if ($("autoRefresh").checked) refreshAll(); }, 10000);
+  refreshAll();
+</script>
+</body>
+</html>
