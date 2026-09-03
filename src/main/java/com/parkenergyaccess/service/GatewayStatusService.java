@@ -4,6 +4,7 @@ import com.parkenergyaccess.entity.GatewayArchive;
 import com.parkenergyaccess.vo.GatewayStatusVO;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,6 +25,22 @@ public class GatewayStatusService {
                         where id = ?
                         """,
                 gateway.gatewayId());
+    }
+
+    @Scheduled(fixedDelayString = "${park.mqtt.offline-check-ms:30000}", initialDelay = 30000)
+    public void markTimedOutGatewaysOffline() {
+        jdbcTemplate.update("""
+                UPDATE dev_gateway
+                SET online_status = 0
+                WHERE status = 1 AND online_status = 1
+                  AND (last_online_time IS NULL OR TIMESTAMPDIFF(SECOND, last_online_time, NOW())
+                       > COALESCE(NULLIF(heartbeat_interval, 0), 30) * 3)
+                """);
+        jdbcTemplate.update("""
+                UPDATE dev_device d JOIN dev_gateway g ON g.id=d.gateway_id
+                SET d.online_status=0
+                WHERE d.status=1 AND d.online_status=1 AND g.online_status=0
+                """);
     }
 
     public List<GatewayStatusVO> list() {

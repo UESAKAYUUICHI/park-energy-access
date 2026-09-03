@@ -18,13 +18,20 @@ public class GatewayArchiveService {
     }
 
     public GatewayArchive validateGateway(String topicGatewayId, String gatewaySn) {
+        Long parsedTopicGatewayId;
+        try {
+            parsedTopicGatewayId = Long.valueOf(topicGatewayId);
+        } catch (RuntimeException ex) {
+            throw new BusinessException(ErrorCode.GATEWAY_INVALID,
+                    "topic gateway id is invalid: " + topicGatewayId);
+        }
         if (gatewaySn == null || gatewaySn.isBlank()) {
             throw new BusinessException(ErrorCode.GATEWAY_INVALID, "gatewaySn is required");
         }
         List<GatewayArchive> gateways = jdbcTemplate.query("""
                         select id, gateway_sn, status
                         from dev_gateway
-                        where gateway_sn = ?
+                        where gateway_sn = cast(? as char character set utf8mb4) collate utf8mb4_general_ci
                         limit 1
                         """,
                 (rs, rowNum) -> new GatewayArchive(
@@ -40,6 +47,10 @@ public class GatewayArchiveService {
                         "gateway does not exist: " + gatewaySn));
         if (!gateway.enabled()) {
             throw new BusinessException(ErrorCode.GATEWAY_INVALID, "gateway is disabled: " + gatewaySn);
+        }
+        if (!gateway.gatewayId().equals(parsedTopicGatewayId)) {
+            throw new BusinessException(ErrorCode.GATEWAY_INVALID,
+                    "topic gateway id does not match gatewaySn: " + topicGatewayId + " / " + gatewaySn);
         }
         return gateway;
     }
