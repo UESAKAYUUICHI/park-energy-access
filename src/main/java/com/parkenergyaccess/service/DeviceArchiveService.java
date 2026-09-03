@@ -7,6 +7,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class DeviceArchiveService {
@@ -22,23 +24,52 @@ public class DeviceArchiveService {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "meters is required");
         }
         for (MeterPayload meter : meters) {
-            validateMeter(gatewayId, meter);
+            MeterValidation validation = inspectMeter(gatewayId, meter);
+            if (!validation.accepted()) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, validation.reason());
+            }
         }
     }
 
-    private void validateMeter(Long gatewayId, MeterPayload meter) {
+    public MeterValidation inspectMeter(Long gatewayId, MeterPayload meter) {
         if (meter.deviceSn() == null || meter.deviceSn().isBlank()) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "deviceSn is required");
+            return MeterValidation.rejected("deviceSn is required");
         }
-        Integer count = jdbcTemplate.queryForObject("""
-                        select count(1)
-                        from dev_device
-                        where gateway_id = ? and device_sn = ? and status = 1
-                        """,
-                Integer.class, gatewayId, meter.deviceSn());
-        if (count == null || count == 0) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST,
-                    "device does not exist or is disabled: " + meter.deviceSn());
+        List<Map<String, Object>> devices = jdbcTemplate.queryForList("""
+                        select d.protocol_addr, t.protocol_type
+                        from dev_device d
+                        join dev_device_type t on t.id = d.device_type_id
+                        where d.gateway_id = ?
+                          and BINARY d.device_sn = BINARY ?
+                          and d.status = 1
+                        limit 1
+                        """, gatewayId, meter.deviceSn());
+        if (devices.isEmpty()) {
+            return MeterValidation.rejected("device does not exist, is disabled, or is not bound to gateway: " + meter.deviceSn());
+        }
+        Map<String, Object> device = devices.get(0);
+        String protocolType = String.valueOf(device.getOrDefault("protocol_type", ""))
+                .trim().toUpperCase(Locale.ROOT);
+        if (!protocolType.startsWith("MODBUS")) {
+            return MeterValidation.valid();
+        }
+        if (meter.modbusAddr() == null || meter.modbusAddr() <= 0) {
+            return MeterValidation.rejected("modbusAddr is required for Modbus device: " + meter.deviceSn());
+        }
+        String expectedAddress = String.valueOf(device.getOrDefault("protocol_addr", "")).trim();
+        if (!expectedAddress.equals(String.valueOf(meter.modbusAddr()))) {
+            return MeterValidation.rejected("modbusAddr does not match device archive: " + meter.deviceSn());
+        }
+        return MeterValidation.valid();
+    }
+
+    public record MeterValidation(boolean accepted, String reason) {
+        public static MeterValidation valid() {
+            return new MeterValidation(true, null);
+        }
+
+        public static MeterValidation rejected(String reason) {
+            return new MeterValidation(false, reason);
         }
     }
 }
