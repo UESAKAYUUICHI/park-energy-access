@@ -15,11 +15,17 @@ public record RawMessage(
         String payload,
         Instant receiveTime,
         RawMessageStatus status,
+        String failCode,
         String failReason
 ) {
 
     public RawMessage withStatus(RawMessageStatus nextStatus, String nextFailReason) {
         return new RawMessage(id, gatewayId, gatewaySn, messageId, topic, messageType, payload, receiveTime,
-                nextStatus, nextFailReason);
+                nextStatus, failCode, nextFailReason);
+    }
+
+    public RawMessage withFailure(RawMessageStatus nextStatus, String nextFailCode, String nextFailReason) {
+        return new RawMessage(id, gatewayId, gatewaySn, messageId, topic, messageType, payload, receiveTime,
+                nextStatus, nextFailCode, nextFailReason);
     }
 }
