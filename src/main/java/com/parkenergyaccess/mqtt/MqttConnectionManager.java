@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import jakarta.annotation.PreDestroy;
 
 import java.nio.charset.StandardCharsets;
 
@@ -22,32 +23,70 @@ public class MqttConnectionManager implements MqttCallbackExtended {
 
     private final MqttProperties properties;
     private final MqttMessageDispatcher dispatcher;
-    private MqttClient client;
+    private final Object connectionLock = new Object();
+    private volatile MqttClient client;
+    private long nextConnectAt;
+    private long reconnectDelayMs = 5_000L;
+    private static final long MAX_RECONNECT_DELAY_MS = 300_000L;
 
     public MqttConnectionManager(MqttProperties properties, MqttMessageDispatcher dispatcher) {
         this.properties = properties;
         this.dispatcher = dispatcher;
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 1000)
+    @Scheduled(fixedDelay = 1000, initialDelay = 1000)
     public void connectIfNecessary() {
         if (!properties.inboundEnabled()) {
             return;
         }
-        try {
+        synchronized (connectionLock) {
             if (client != null && client.isConnected()) {
                 return;
             }
-            client = new MqttClient(properties.brokerUri(), properties.clientId(), new MemoryPersistence());
-            client.setCallback(this);
-            MqttConnectOptions options = new MqttConnectOptions();
-            options.setAutomaticReconnect(true);
-            options.setCleanSession(true);
-            options.setUserName(properties.username());
-            options.setPassword(properties.password().toCharArray());
-            client.connect(options);
-        } catch (Exception ex) {
-            log.warn("NanoMQ is not ready: {}", ex.getMessage());
+            long now = System.currentTimeMillis();
+            if (now < nextConnectAt) {
+                return;
+            }
+            try {
+                if (client == null) {
+                    client = new MqttClient(properties.brokerUri(), properties.clientId(), new MemoryPersistence());
+                    client.setCallback(this);
+                }
+                MqttConnectOptions options = new MqttConnectOptions();
+                options.setAutomaticReconnect(false);
+                options.setCleanSession(true);
+                options.setUserName(properties.username());
+                options.setPassword(properties.password().toCharArray());
+                client.connect(options);
+                reconnectDelayMs = 5_000L;
+                nextConnectAt = 0L;
+                log.info("Connected to NanoMQ with clientId={}", properties.clientId());
+            } catch (Exception ex) {
+                nextConnectAt = now + reconnectDelayMs;
+                log.warn("NanoMQ connection unavailable; retrying in {}s: {}", reconnectDelayMs / 1000, ex.getMessage());
+                reconnectDelayMs = Math.min(reconnectDelayMs * 2, MAX_RECONNECT_DELAY_MS);
+                closeClientAfterFailure();
+            }
+        }
+    }
+
+    private void closeClientAfterFailure() {
+        if (client == null) {
+            return;
+        }
+        try {
+            client.close(true);
+        } catch (MqttException ignored) {
+            // The next attempt will create a fresh client if the old one cannot close cleanly.
+        } finally {
+            client = null;
+        }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        synchronized (connectionLock) {
+            closeClientAfterFailure();
         }
     }
 
@@ -58,21 +97,35 @@ public class MqttConnectionManager implements MqttCallbackExtended {
         client.publish(topic, payload, properties.qos(), false);
     }
 
+    /** Read-only status used by the operations dashboard. */
+    public boolean isConnected() {
+        MqttClient current = client;
+        return current != null && current.isConnected();
+    }
+
     @Override
     public void connectComplete(boolean reconnect, String serverURI) {
+        MqttClient connectedClient = client;
+        if (connectedClient == null || !connectedClient.isConnected()) {
+            return;
+        }
         try {
-            client.subscribe("gateway/+/status/heartbeat", properties.qos());
-            client.subscribe("gateway/+/data/upload", properties.qos());
-            client.subscribe("gateway/+/cmd/response", properties.qos());
+            connectedClient.subscribe("gateway/+/status/heartbeat", properties.qos());
+            connectedClient.subscribe("gateway/+/data/upload", properties.qos());
+            connectedClient.subscribe("gateway/+/cmd/response", properties.qos());
+            connectedClient.subscribe("gateway/+/alarm/up", properties.qos());
             log.info("Subscribed NanoMQ topics from {}", serverURI);
         } catch (MqttException ex) {
-            log.warn("Subscribe NanoMQ topics failed: {}", ex.getMessage());
+            log.warn("Subscribe NanoMQ topics failed while connected: {}", ex.getMessage());
         }
     }
 
     @Override
     public void connectionLost(Throwable cause) {
-        log.warn("NanoMQ connection lost: {}", cause == null ? "unknown" : cause.getMessage());
+        synchronized (connectionLock) {
+            nextConnectAt = Math.max(nextConnectAt, System.currentTimeMillis() + reconnectDelayMs);
+        }
+        log.warn("NanoMQ connection lost; reconnect is backoff controlled: {}", cause == null ? "unknown" : cause.getMessage());
     }
 
     @Override

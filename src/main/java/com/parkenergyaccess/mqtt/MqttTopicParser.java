@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 @Component
 public class MqttTopicParser {
 
-    private static final Pattern TOPIC_PATTERN = Pattern.compile("^gateway/([^/]+)/(data/upload|status/heartbeat|cmd/response)$");
+    private static final Pattern TOPIC_PATTERN = Pattern.compile("^gateway/([^/]+)/(data/upload|status/heartbeat|cmd/response|alarm/up)$");
 
     public ParsedTopic parse(String topic) {
         Matcher matcher = TOPIC_PATTERN.matcher(topic);
@@ -22,6 +22,7 @@ public class MqttTopicParser {
             case "data/upload" -> MqttMessageType.DATA_UPLOAD;
             case "status/heartbeat" -> MqttMessageType.HEARTBEAT;
             case "cmd/response" -> MqttMessageType.COMMAND_RESPONSE;
+            case "alarm/up" -> MqttMessageType.ALARM_UPLOAD;
             default -> MqttMessageType.UNKNOWN;
         };
         return new ParsedTopic(topic, gatewayId, type);
