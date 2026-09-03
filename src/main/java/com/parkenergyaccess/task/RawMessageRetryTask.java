@@ -24,15 +24,16 @@ public class RawMessageRetryTask {
 
     @Scheduled(fixedDelayString = "${park.rabbitmq.retry-delay-ms:30000}")
     public void retryMqFailedMessages() {
-        for (RawMessage raw : rawMessageService.mqFailed(20)) {
+        for (RawMessage raw : rawMessageService.pendingForward(20)) {
             try {
                 rawDataProducer.publish(new AccessForwardMessage(raw.id(), raw.messageId(), raw.gatewayId(),
-                        raw.gatewaySn(), "DATA_UPLOAD", raw.payload(), raw.receiveTime()));
+                        raw.gatewaySn(), raw.topic().endsWith("/alarm/up") ? "ALARM_UPLOAD" : "DATA_UPLOAD",
+                        raw.payload(), raw.receiveTime()));
                 rawMessageService.updateStatus(raw.id(), RawMessageStatus.FORWARDED, null);
-                log.info("Retried MQ_FAILED raw message successfully, rawLogId={}", raw.id());
+                log.info("Forwarded pending raw message successfully, rawLogId={}", raw.id());
             } catch (Exception ex) {
                 rawMessageService.updateStatus(raw.id(), RawMessageStatus.MQ_FAILED, ex.getMessage());
-                log.warn("Retry MQ_FAILED raw message failed, rawLogId={}", raw.id(), ex);
+                log.warn("Forward pending raw message failed, rawLogId={}", raw.id(), ex);
             }
         }
     }

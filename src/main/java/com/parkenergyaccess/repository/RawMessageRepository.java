@@ -15,5 +15,5 @@ public interface RawMessageRepository {
 
     List<RawMessage> findLatest();
 
-    List<RawMessage> findMqFailed(int limit);
+    List<RawMessage> findPendingForward(int limit);
 }

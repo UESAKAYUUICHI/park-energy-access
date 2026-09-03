@@ -46,9 +46,11 @@ public class InMemoryRawMessageRepository implements RawMessageRepository {
     }
 
     @Override
-    public List<RawMessage> findMqFailed(int limit) {
+    public List<RawMessage> findPendingForward(int limit) {
         return messages.values().stream()
-                .filter(message -> message.status() == com.parkenergyaccess.enums.RawMessageStatus.MQ_FAILED)
+                .filter(message -> message.messageType() == com.parkenergyaccess.enums.MqttMessageType.DATA_UPLOAD)
+                .filter(message -> message.status() == com.parkenergyaccess.enums.RawMessageStatus.RECEIVED
+                        || message.status() == com.parkenergyaccess.enums.RawMessageStatus.MQ_FAILED)
                 .sorted(Comparator.comparing(RawMessage::receiveTime))
                 .limit(limit)
                 .toList();

@@ -26,10 +26,11 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
             rs.getString("gateway_sn"),
             rs.getString("message_id"),
             rs.getString("topic"),
-            MqttMessageType.UNKNOWN,
+            messageTypeOf(rs.getString("topic")),
             rs.getString("payload"),
             rs.getTimestamp("receive_time").toInstant(),
             fromParseStatus(rs.getInt("parse_status"), rs.getString("fail_reason")),
+            rs.getString("fail_code"),
             rs.getString("fail_reason")
     );
 
@@ -45,10 +46,10 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
         if (message.id() > 0 && message.status() != RawMessageStatus.RECEIVED) {
             jdbcTemplate.update("""
                             update log_raw_message
-                            set parse_status = ?, fail_reason = ?
+                            set parse_status = ?, fail_code = ?, fail_reason = ?
                             where id = ?
                             """,
-                    toParseStatus(message.status()), message.failReason(), message.id());
+                    toParseStatus(message.status()), message.failCode(), message.failReason(), message.id());
             return message;
         }
 
@@ -56,8 +57,8 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement("""
                     insert into log_raw_message
-                      (gateway_id, message_id, topic, payload, receive_time, parse_status, fail_reason)
-                    values (?, ?, ?, ?, ?, ?, ?)
+                      (gateway_id, message_id, topic, payload, receive_time, parse_status, fail_code, fail_reason)
+                    values (?, ?, ?, ?, ?, ?, ?, ?)
                     """, Statement.RETURN_GENERATED_KEYS);
             ps.setLong(1, message.gatewayId());
             ps.setString(2, message.messageId());
@@ -65,20 +66,21 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
             ps.setString(4, message.payload());
             ps.setTimestamp(5, Timestamp.from(message.receiveTime()));
             ps.setInt(6, toParseStatus(message.status()));
-            ps.setString(7, message.failReason());
+            ps.setString(7, message.failCode());
+            ps.setString(8, message.failReason());
             return ps;
         }, keyHolder);
         Number id = keyHolder.getKey();
         return new RawMessage(id == null ? message.id() : id.longValue(), message.gatewayId(), message.gatewaySn(),
                 message.messageId(), message.topic(), message.messageType(), message.payload(), message.receiveTime(),
-                message.status(), message.failReason());
+                message.status(), message.failCode(), message.failReason());
     }
 
     @Override
     public Optional<RawMessage> findByGatewayIdAndMessageId(Long gatewayId, String messageId) {
         List<RawMessage> results = jdbcTemplate.query("""
                         select r.id, r.gateway_id, g.gateway_sn, r.message_id, r.topic, r.payload,
-                               r.receive_time, r.parse_status, r.fail_reason
+                               r.receive_time, r.parse_status, r.fail_code, r.fail_reason
                         from log_raw_message r
                         left join dev_gateway g on g.id = r.gateway_id
                         where r.gateway_id = ? and r.message_id = ?
@@ -92,7 +94,7 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
     public Optional<RawMessage> findById(long id) {
         List<RawMessage> results = jdbcTemplate.query("""
                         select r.id, r.gateway_id, g.gateway_sn, r.message_id, r.topic, r.payload,
-                               r.receive_time, r.parse_status, r.fail_reason
+                               r.receive_time, r.parse_status, r.fail_code, r.fail_reason
                         from log_raw_message r
                         left join dev_gateway g on g.id = r.gateway_id
                         where r.id = ?
@@ -106,7 +108,7 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
     public List<RawMessage> findLatest() {
         return jdbcTemplate.query("""
                         select r.id, r.gateway_id, g.gateway_sn, r.message_id, r.topic, r.payload,
-                               r.receive_time, r.parse_status, r.fail_reason
+                               r.receive_time, r.parse_status, r.fail_code, r.fail_reason
                         from log_raw_message r
                         left join dev_gateway g on g.id = r.gateway_id
                         order by r.receive_time desc, r.id desc
@@ -116,15 +118,16 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
     }
 
     @Override
-    public List<RawMessage> findMqFailed(int limit) {
+    public List<RawMessage> findPendingForward(int limit) {
         return jdbcTemplate.query("""
                         select r.id, r.gateway_id, g.gateway_sn, r.message_id, r.topic, r.payload,
-                               r.receive_time, r.parse_status, r.fail_reason
+                               r.receive_time, r.parse_status, r.fail_code, r.fail_reason
                         from log_raw_message r
                         left join dev_gateway g on g.id = r.gateway_id
-                        where r.parse_status = 2
-                          and r.gateway_id is not null
-                          and r.fail_reason like 'MQ_FAILED:%'
+                        where r.gateway_id is not null
+                          and (r.topic like '%/data/upload' or r.topic like '%/alarm/up')
+                          and ((r.parse_status = 0 and r.receive_time <= date_sub(now(), interval 5 second))
+                               or (r.parse_status = 2 and r.fail_reason like 'MQ_FAILED:%'))
                         order by r.receive_time asc, r.id asc
                         limit ?
                         """, rowMapper, limit);
@@ -148,5 +151,14 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
                     : RawMessageStatus.INVALID;
         }
         return RawMessageStatus.RECEIVED;
+    }
+
+    private MqttMessageType messageTypeOf(String topic) {
+        if (topic == null) return MqttMessageType.UNKNOWN;
+        if (topic.endsWith("/data/upload")) return MqttMessageType.DATA_UPLOAD;
+        if (topic.endsWith("/alarm/up")) return MqttMessageType.ALARM_UPLOAD;
+        if (topic.endsWith("/status/heartbeat")) return MqttMessageType.HEARTBEAT;
+        if (topic.endsWith("/cmd/response")) return MqttMessageType.COMMAND_RESPONSE;
+        return MqttMessageType.UNKNOWN;
     }
 }

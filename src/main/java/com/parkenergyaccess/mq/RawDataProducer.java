@@ -21,7 +21,9 @@ public class RawDataProducer {
     }
 
     public void publish(AccessForwardMessage message) throws JsonProcessingException {
-        rabbitTemplate.convertAndSend(properties.exchange(), properties.rawDataRoutingKey(),
+        String routingKey = "ALARM_UPLOAD".equals(message.payloadType())
+                ? properties.alarmRoutingKey() : properties.rawDataRoutingKey();
+        rabbitTemplate.convertAndSend(properties.exchange(), routingKey,
                 objectMapper.writeValueAsString(message));
     }
 }
