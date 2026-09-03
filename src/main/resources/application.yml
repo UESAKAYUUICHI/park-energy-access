@@ -5,27 +5,44 @@ spring:
   application:
     name: park-energy-access
   datasource:
-    url: ${PARK_DB_URL:jdbc:mysql://localhost:3306/park_energy_system?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
-    username: root
-    password: 123456
+    url: jdbc:mysql://115.159.222.238:3306/park_energy_system?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: admin
+    password: Saki#Mygo06
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: ParkAccessPool
+      maximum-pool-size: ${ACCESS_DB_POOL_MAX_SIZE:3}
+      minimum-idle: ${ACCESS_DB_POOL_MIN_IDLE:0}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:5000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT_MS:2000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:10000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:60000}
+      keepalive-time: 0
+      connection-test-query: SELECT 1
+      data-source-properties:
+        connectTimeout: ${DB_CONNECT_TIMEOUT_MS:3000}
+        socketTimeout: ${DB_SOCKET_TIMEOUT_MS:8000}
+        tcpKeepAlive: true
   rabbitmq:
-    host: localhost
+    host: 115.159.222.238
     port: 5672
-    username: guest
-    password: guest
+    username: admin
+    password: Saki#Mygo06
 
 park:
   mqtt:
     inbound-enabled: true
-    host: localhost
+    host: 115.159.222.238
     port: 1883
-    username: access-service
-    password: access-secret
-    client-id: park-energy-access
+    username: ${MQTT_USERNAME:admin}
+    password: ${MQTT_PASSWORD:Saki#Mygo06}
+    # The subscriber must be unique per instance; duplicate IDs make brokers repeatedly evict one instance.
+    client-id: ${MQTT_CLIENT_ID:park-energy-access-${random.uuid}}
     qos: 1
     command-timeout-seconds: 30
   rabbitmq:
     exchange: park.energy.exchange
     raw-data-queue: raw_electric_data
     raw-data-routing-key: data.raw
+    alarm-queue: gateway_alarm_upload
+    alarm-routing-key: alarm.raw
