@@ -69,6 +69,8 @@ class GatewayDataUploadHandlerTests {
         verify(rawDataProducer).publish(forwardCaptor.capture());
         GatewayUploadPayload forwarded = objectMapper.readValue(forwardCaptor.getValue().rawPayload(), GatewayUploadPayload.class);
         assertThat(forwarded.schemaVersion()).isEqualTo("1.0");
+        assertThat(forwarded.sampleIntervalSeconds()).isEqualTo(5);
+        assertThat(forwarded.reportWindowSeconds()).isEqualTo(300);
         assertThat(forwarded.meters()).extracting(MeterPayload::deviceSn).containsExactly("METER-KNOWN");
         verify(discoveredDeviceService).record(eq(3L), any(MeterPayload.class), eq(raw),
                 eq("Device not found or not bound to gateway"));
@@ -99,7 +101,7 @@ class GatewayDataUploadHandlerTests {
     private String simulatedMixedPayload() {
         return """
                 {"schemaVersion":"1.0","messageId":"MSG-3-1000","gatewaySn":"GW-DEMO-003","timestamp":1786099356805,
-                 "type":"DATA_UPLOAD","meters":[
+                 "type":"DATA_UPLOAD","sampleIntervalSeconds":5,"reportWindowSeconds":300,"meters":[
                    {"deviceSn":"METER-KNOWN","modbusAddr":1,"collectTime":1786099356805,"points":{"voltage_a":221.4,"forward_active_energy":12843.27},"quality":0},
                    {"deviceSn":"METER-UNKNOWN","modbusAddr":2,"collectTime":1786099356805,"points":{"voltage_a":219.8,"forward_active_energy":456.78},"quality":0}
                  ]}

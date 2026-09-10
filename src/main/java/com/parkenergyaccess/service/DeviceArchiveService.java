@@ -36,7 +36,7 @@ public class DeviceArchiveService {
             return MeterValidation.rejected("deviceSn is required");
         }
         List<Map<String, Object>> devices = jdbcTemplate.queryForList("""
-                        select d.protocol_addr, t.protocol_type
+                        select d.protocol_addr, d.edge_channel_id, t.protocol_type
                         from dev_device d
                         join dev_device_type t on t.id = d.device_type_id
                         where d.gateway_id = ?
@@ -60,7 +60,18 @@ public class DeviceArchiveService {
         if (!expectedAddress.equals(String.valueOf(meter.modbusAddr()))) {
             return MeterValidation.rejected("modbusAddr does not match device archive: " + meter.deviceSn());
         }
+        String actualChannel = meter.channelId() == null ? "" : meter.channelId().trim();
+        String expectedChannel = valueAsText(device.get("edge_channel_id"));
+        if (!actualChannel.isBlank() && !expectedChannel.isBlank()
+                && !expectedChannel.equals(actualChannel)) {
+            return MeterValidation.rejected("channelId does not match device archive: " + meter.deviceSn());
+        }
         return MeterValidation.valid();
+    }
+
+    private String valueAsText(Object value) {
+        if (value == null) return "";
+        return String.valueOf(value).trim();
     }
 
     public record MeterValidation(boolean accepted, String reason) {

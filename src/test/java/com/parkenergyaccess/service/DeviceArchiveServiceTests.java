@@ -48,4 +48,18 @@ class DeviceArchiveServiceTests {
         assertDoesNotThrow(() -> service.validateMeters(3L,
                 List.of(new MeterPayload("MODBUS-METER-1", 8, null, null, null, 0, null))));
     }
+
+    @Test
+    void rejectsMismatchedChannelWhenGatewayReportsIt() {
+        when(jdbcTemplate.queryForList(anyString(), eq(3L), eq("MODBUS-METER-2")))
+                .thenReturn(List.of(Map.of("protocol_type", "MODBUS_RTU", "protocol_addr", "8",
+                        "edge_channel_id", "rs485-1")));
+
+        assertThrows(BusinessException.class, () -> service.validateMeters(3L,
+                List.of(new MeterPayload("MODBUS-METER-2", 8, "rs485-2", null, null, null,
+                        null, null, null, null, 0, null))));
+        assertDoesNotThrow(() -> service.validateMeters(3L,
+                List.of(new MeterPayload("MODBUS-METER-2", 8, "rs485-1", null, null, null,
+                        null, null, null, null, 0, null))));
+    }
 }
