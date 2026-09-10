@@ -83,7 +83,8 @@ public class GatewayDataUploadHandler {
             deviceStatusService.markMetersOnline(acceptedMeters);
             try {
                 GatewayUploadPayload forwardPayload = new GatewayUploadPayload(upload.messageId(), upload.gatewaySn(),
-                        upload.timestamp(), upload.type(), acceptedMeters, upload.schemaVersion());
+                        upload.timestamp(), upload.type(), upload.sampleIntervalSeconds(),
+                        upload.reportWindowSeconds(), acceptedMeters, upload.schemaVersion());
                 rawDataProducer.publish(new AccessForwardMessage(raw.id(), upload.messageId(), gateway.gatewayId(),
                         gateway.gatewaySn(), "DATA_UPLOAD", objectMapper.writeValueAsString(forwardPayload), raw.receiveTime()));
                 rawMessageService.updateStatus(raw.id(), RawMessageStatus.FORWARDED, null);
