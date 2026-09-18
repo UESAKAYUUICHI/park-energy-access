@@ -39,7 +39,19 @@ public class GatewayStatusService {
         jdbcTemplate.update("""
                 UPDATE dev_device d JOIN dev_gateway g ON g.id=d.gateway_id
                 SET d.online_status=0
-                WHERE d.status=1 AND d.online_status=1 AND g.online_status=0
+                WHERE d.status=1 AND g.online_status=0
+                """);
+        jdbcTemplate.update("""
+                UPDATE dev_device d
+                LEFT JOIN dev_gateway g ON g.id=d.gateway_id
+                SET d.online_status=0
+                WHERE d.status=1
+                  AND (d.last_online_time IS NULL
+                       OR TIMESTAMPDIFF(SECOND,d.last_online_time,NOW()) >
+                          GREATEST(
+                              COALESCE(NULLIF(d.collect_interval_seconds,0), 300) * 3,
+                              COALESCE(NULLIF(g.heartbeat_interval,0), 30) * 3
+                          ))
                 """);
     }
 

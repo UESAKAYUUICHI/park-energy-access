@@ -80,7 +80,7 @@ public class GatewayDataUploadHandler {
                 return;
             }
             gatewayStatusService.markOnline(gateway);
-            deviceStatusService.markMetersOnline(acceptedMeters);
+            deviceStatusService.markMetersOnline(gateway.gatewayId(), acceptedMeters);
             try {
                 GatewayUploadPayload forwardPayload = new GatewayUploadPayload(upload.messageId(), upload.gatewaySn(),
                         upload.timestamp(), upload.type(), upload.sampleIntervalSeconds(),
