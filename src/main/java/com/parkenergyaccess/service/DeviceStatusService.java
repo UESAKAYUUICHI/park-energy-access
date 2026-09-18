@@ -21,14 +21,31 @@ public class DeviceStatusService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void markMetersOnline(List<MeterPayload> meters) {
+    public void markMetersOnline(Long gatewayId, List<MeterPayload> meters) {
         if (meters == null) {
             return;
         }
         Instant now = Instant.now();
         meters.stream()
                 .filter(meter -> meter.deviceSn() != null && !meter.deviceSn().isBlank())
-                .forEach(meter -> deviceLastSeen.put(meter.deviceSn(), now));
+                .forEach(meter -> {
+                    String deviceSn = meter.deviceSn().trim();
+                    deviceLastSeen.put(deviceSn, now);
+                    jdbcTemplate.update("""
+                            UPDATE dev_device
+                            SET online_status=1, last_online_time=NOW()
+                            WHERE gateway_id=? AND device_sn=? AND status=1
+                            """, gatewayId, deviceSn);
+                });
+    }
+
+    /** Compatibility overload for callers that do not have the validated gateway id. */
+    public void markMetersOnline(List<MeterPayload> meters) {
+        if (meters == null) return;
+        Instant now = Instant.now();
+        meters.stream()
+                .filter(meter -> meter.deviceSn() != null && !meter.deviceSn().isBlank())
+                .forEach(meter -> deviceLastSeen.put(meter.deviceSn().trim(), now));
     }
 
     /** 心跳只允许更新当前网关已绑定的子设备，未知 SN 不会被自动建档。 */
@@ -37,13 +54,20 @@ public class DeviceStatusService {
         for (GatewayHeartbeatPayload.DeviceHeartbeat device : devices) {
             if (device == null || device.deviceSn() == null || device.deviceSn().isBlank()) continue;
             boolean online = Boolean.TRUE.equals(device.online());
-            Instant seen = device.lastReadTime() == null || device.lastReadTime() <= 0
-                    ? Instant.now() : Instant.ofEpochMilli(device.lastReadTime());
-            jdbcTemplate.update("""
-                    UPDATE dev_device SET online_status=?, last_online_time=?
-                    WHERE gateway_id=? AND device_sn=? AND status=1
-                    """, online ? 1 : 0, Timestamp.from(seen), gatewayId, device.deviceSn().trim());
-            if (online) deviceLastSeen.put(device.deviceSn().trim(), seen);
+            String deviceSn = device.deviceSn().trim();
+            if (online) {
+                Instant seen = Instant.now();
+                jdbcTemplate.update("""
+                        UPDATE dev_device SET online_status=1, last_online_time=?
+                        WHERE gateway_id=? AND device_sn=? AND status=1
+                        """, Timestamp.from(seen), gatewayId, deviceSn);
+                deviceLastSeen.put(deviceSn, seen);
+            } else {
+                jdbcTemplate.update("""
+                        UPDATE dev_device SET online_status=0
+                        WHERE gateway_id=? AND device_sn=? AND status=1
+                        """, gatewayId, deviceSn);
+            }
         }
     }
 }
