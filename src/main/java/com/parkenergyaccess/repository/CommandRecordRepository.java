@@ -12,6 +12,8 @@ public interface CommandRecordRepository {
 
     Optional<CommandRecord> findByCommandId(String commandId);
 
+    long maxCommandSequence(String commandPrefix);
+
     List<CommandRecord> findLatest();
 
     List<CommandRecord> findByStatus(CommandStatus status);
