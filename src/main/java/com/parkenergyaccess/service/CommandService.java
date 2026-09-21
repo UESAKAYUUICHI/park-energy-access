@@ -35,7 +35,7 @@ public class CommandService {
 
     public CommandRecordVO sendCommand(CommandCreateRequest request) {
         gatewayArchiveService.validateGatewayId(request.gatewayId());
-        String commandId = idGenerator.nextCommandId();
+        String commandId = nextUniqueCommandId();
         String topicGatewayId = request.topicGatewayId() == null || request.topicGatewayId().isBlank()
                 ? String.valueOf(request.gatewayId())
                 : request.topicGatewayId();
@@ -57,6 +57,18 @@ public class CommandService {
             failed = repository.save(failed);
             return toVO(failed);
         }
+    }
+
+    private String nextUniqueCommandId() {
+        long latest = repository.maxCommandSequence(idGenerator.commandPrefix());
+        for (int attempt = 0; attempt < 10; attempt++) {
+            String commandId = idGenerator.nextCommandId(latest);
+            if (repository.findByCommandId(commandId).isEmpty()) {
+                return commandId;
+            }
+            latest++;
+        }
+        throw new BusinessException(ErrorCode.BAD_REQUEST, "command id generation conflict");
     }
 
     public void handleResponse(String topicGatewayId, CommandResponsePayload response, Map<String, Object> rawResponse) {

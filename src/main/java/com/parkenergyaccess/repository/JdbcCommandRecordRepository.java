@@ -131,6 +131,18 @@ public class JdbcCommandRecordRepository implements CommandRecordRepository {
     }
 
     @Override
+    public long maxCommandSequence(String commandPrefix) {
+        Integer suffixStart = commandPrefix.length() + 1;
+        String pattern = "^" + commandPrefix + "[0-9]+$";
+        Long value = jdbcTemplate.queryForObject("""
+                SELECT COALESCE(MAX(CAST(SUBSTRING(command_id, ?) AS UNSIGNED)), 0)
+                FROM command_record
+                WHERE command_id LIKE ? AND command_id REGEXP ?
+                """, Long.class, suffixStart, commandPrefix + "%", pattern);
+        return value == null ? 0L : value;
+    }
+
+    @Override
     public List<CommandRecord> findLatest() {
         return jdbcTemplate.query("""
                         select id, command_id, gateway_id, target_type, target_id, target_sn, command_type,

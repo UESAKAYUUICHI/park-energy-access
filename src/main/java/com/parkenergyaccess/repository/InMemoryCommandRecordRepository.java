@@ -29,6 +29,17 @@ public class InMemoryCommandRecordRepository implements CommandRecordRepository 
     }
 
     @Override
+    public long maxCommandSequence(String commandPrefix) {
+        return commands.keySet().stream()
+                .filter(commandId -> commandId.startsWith(commandPrefix))
+                .map(commandId -> commandId.substring(commandPrefix.length()))
+                .filter(suffix -> suffix.chars().allMatch(Character::isDigit))
+                .mapToLong(Long::parseLong)
+                .max()
+                .orElse(0L);
+    }
+
+    @Override
     public List<CommandRecord> findLatest() {
         return commands.values().stream()
                 .sorted(Comparator.comparing(CommandRecord::requestTime).reversed())
