@@ -77,6 +77,17 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
     }
 
     @Override
+    public boolean existsByGatewayIdAndMessageId(Long gatewayId, String messageId) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        select count(1)
+                        from log_raw_message
+                        where gateway_id = ? and message_id = ?
+                        """,
+                Integer.class, gatewayId, messageId);
+        return count != null && count > 0;
+    }
+
+    @Override
     public Optional<RawMessage> findByGatewayIdAndMessageId(Long gatewayId, String messageId) {
         List<RawMessage> results = jdbcTemplate.query("""
                         select r.id, r.gateway_id, g.gateway_sn, r.message_id, r.topic, r.payload,

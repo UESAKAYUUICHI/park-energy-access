@@ -9,6 +9,8 @@ public interface RawMessageRepository {
 
     RawMessage save(RawMessage message);
 
+    boolean existsByGatewayIdAndMessageId(Long gatewayId, String messageId);
+
     Optional<RawMessage> findByGatewayIdAndMessageId(Long gatewayId, String messageId);
 
     Optional<RawMessage> findById(long id);

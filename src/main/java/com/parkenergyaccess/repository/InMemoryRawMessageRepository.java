@@ -27,6 +27,11 @@ public class InMemoryRawMessageRepository implements RawMessageRepository {
     }
 
     @Override
+    public boolean existsByGatewayIdAndMessageId(Long gatewayId, String messageId) {
+        return dedupIndex.containsKey(dedupKey(gatewayId, messageId));
+    }
+
+    @Override
     public Optional<RawMessage> findByGatewayIdAndMessageId(Long gatewayId, String messageId) {
         Long id = dedupIndex.get(dedupKey(gatewayId, messageId));
         return id == null ? Optional.empty() : Optional.ofNullable(messages.get(id));

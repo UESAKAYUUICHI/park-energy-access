@@ -51,7 +51,7 @@ public class RawMessageService {
     }
 
     public boolean isDuplicate(Long gatewayId, String messageId) {
-        return repository.findByGatewayIdAndMessageId(gatewayId, messageId).isPresent();
+        return repository.existsByGatewayIdAndMessageId(gatewayId, messageId);
     }
 
     public RawMessage updateStatus(long rawLogId, RawMessageStatus status, String failReason) {
