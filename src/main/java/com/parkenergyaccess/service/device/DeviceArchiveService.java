@@ -1,4 +1,4 @@
-package com.parkenergyaccess.service;
+package com.parkenergyaccess.service.device;
 
 import com.parkenergyaccess.common.BusinessException;
 import com.parkenergyaccess.common.ErrorCode;

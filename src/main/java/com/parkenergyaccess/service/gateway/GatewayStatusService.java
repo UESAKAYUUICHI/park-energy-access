@@ -1,4 +1,4 @@
-package com.parkenergyaccess.service;
+package com.parkenergyaccess.service.gateway;
 
 import com.parkenergyaccess.entity.GatewayArchive;
 import com.parkenergyaccess.vo.GatewayStatusVO;

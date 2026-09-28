@@ -1,4 +1,7 @@
 package com.parkenergyaccess.mqtt.handler;
+import com.parkenergyaccess.service.gateway.GatewayStatusService;
+import com.parkenergyaccess.service.gateway.GatewayArchiveService;
+import com.parkenergyaccess.service.message.RawMessageService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.parkenergyaccess.dto.GatewayAlarmPayload;
@@ -9,9 +12,6 @@ import com.parkenergyaccess.enums.RawMessageStatus;
 import com.parkenergyaccess.mq.RawDataProducer;
 import com.parkenergyaccess.mq.message.AccessForwardMessage;
 import com.parkenergyaccess.mqtt.publisher.CommandMqttPublisher;
-import com.parkenergyaccess.service.GatewayArchiveService;
-import com.parkenergyaccess.service.GatewayStatusService;
-import com.parkenergyaccess.service.RawMessageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

@@ -1,13 +1,13 @@
 package com.parkenergyaccess.mqtt.handler;
+import com.parkenergyaccess.service.gateway.GatewayStatusService;
+import com.parkenergyaccess.service.gateway.GatewayArchiveService;
+import com.parkenergyaccess.service.message.RawMessageService;
+import com.parkenergyaccess.service.device.DeviceStatusService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.parkenergyaccess.dto.GatewayHeartbeatPayload;
 import com.parkenergyaccess.entity.GatewayArchive;
 import com.parkenergyaccess.enums.MqttMessageType;
-import com.parkenergyaccess.service.GatewayArchiveService;
-import com.parkenergyaccess.service.GatewayStatusService;
-import com.parkenergyaccess.service.DeviceStatusService;
-import com.parkenergyaccess.service.RawMessageService;
 import org.springframework.stereotype.Component;
 
 @Component

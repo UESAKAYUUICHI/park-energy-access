@@ -1,8 +1,8 @@
 package com.parkenergyaccess.controller;
+import com.parkenergyaccess.service.device.DiscoveredDeviceService;
 
 import com.parkenergyaccess.common.ApiResponse;
 import com.parkenergyaccess.entity.DiscoveredDevice;
-import com.parkenergyaccess.service.DiscoveredDeviceService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
