@@ -1,7 +1,7 @@
 package com.parkenergyaccess.controller;
+import com.parkenergyaccess.service.gateway.GatewayStatusService;
 
 import com.parkenergyaccess.common.ApiResponse;
-import com.parkenergyaccess.service.GatewayStatusService;
 import com.parkenergyaccess.vo.GatewayStatusVO;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

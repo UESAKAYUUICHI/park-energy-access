@@ -1,4 +1,4 @@
-package com.parkenergyaccess.service;
+package com.parkenergyaccess.service.message;
 
 import org.springframework.stereotype.Component;
 

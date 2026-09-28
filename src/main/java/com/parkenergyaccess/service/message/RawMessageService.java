@@ -1,4 +1,4 @@
-package com.parkenergyaccess.service;
+package com.parkenergyaccess.service.message;
 
 import com.parkenergyaccess.entity.GatewayArchive;
 import com.parkenergyaccess.entity.RawMessage;

@@ -1,7 +1,7 @@
 package com.parkenergyaccess.task;
+import com.parkenergyaccess.service.message.CommandService;
 
 import com.parkenergyaccess.config.MqttProperties;
-import com.parkenergyaccess.service.CommandService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 

@@ -1,4 +1,4 @@
-package com.parkenergyaccess.service;
+package com.parkenergyaccess.service.device;
 
 import com.parkenergyaccess.dto.MeterPayload;
 import com.parkenergyaccess.entity.DiscoveredDevice;

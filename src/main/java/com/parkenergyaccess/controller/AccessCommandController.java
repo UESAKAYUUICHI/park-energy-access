@@ -1,8 +1,8 @@
 package com.parkenergyaccess.controller;
+import com.parkenergyaccess.service.message.CommandService;
 
 import com.parkenergyaccess.common.ApiResponse;
 import com.parkenergyaccess.dto.CommandCreateRequest;
-import com.parkenergyaccess.service.CommandService;
 import com.parkenergyaccess.vo.CommandRecordVO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;

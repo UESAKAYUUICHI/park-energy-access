@@ -1,4 +1,5 @@
-package com.parkenergyaccess.service;
+package com.parkenergyaccess.service.message;
+import com.parkenergyaccess.service.gateway.GatewayArchiveService;
 
 import com.parkenergyaccess.common.BusinessException;
 import com.parkenergyaccess.common.ErrorCode;
