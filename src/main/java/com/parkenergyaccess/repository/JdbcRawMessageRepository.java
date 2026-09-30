@@ -34,6 +34,20 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
             rs.getString("fail_reason")
     );
 
+    private final RowMapper<RawMessage> summaryRowMapper = (rs, rowNum) -> new RawMessage(
+            rs.getLong("id"),
+            rs.getLong("gateway_id"),
+            rs.getString("gateway_sn"),
+            rs.getString("message_id"),
+            rs.getString("topic"),
+            messageTypeOf(rs.getString("topic")),
+            null,
+            rs.getTimestamp("receive_time").toInstant(),
+            fromParseStatus(rs.getInt("parse_status"), rs.getString("fail_reason")),
+            rs.getString("fail_code"),
+            rs.getString("fail_reason")
+    );
+
     public JdbcRawMessageRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -118,14 +132,14 @@ public class JdbcRawMessageRepository implements RawMessageRepository {
     @Override
     public List<RawMessage> findLatest() {
         return jdbcTemplate.query("""
-                        select r.id, r.gateway_id, g.gateway_sn, r.message_id, r.topic, r.payload,
+                        select r.id, r.gateway_id, g.gateway_sn, r.message_id, r.topic,
                                r.receive_time, r.parse_status, r.fail_code, r.fail_reason
                         from log_raw_message r
                         left join dev_gateway g on g.id = r.gateway_id
                         order by r.receive_time desc, r.id desc
                         limit 100
                         """,
-                rowMapper);
+                summaryRowMapper);
     }
 
     @Override
